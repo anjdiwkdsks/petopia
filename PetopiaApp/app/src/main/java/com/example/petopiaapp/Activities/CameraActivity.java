@@ -12,6 +12,8 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.media.Image;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.SystemClock;
@@ -89,6 +91,7 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
     private TextView mMsAvgText;
     private TextView mlenText;
     private ImageView imgView;
+
     private Module mModule;
     private String mModuleAssetName;
     private FloatBuffer mInputTensorBuffer;
@@ -97,6 +100,7 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
     private Queue<Long> mMovingAvgQueue = new LinkedList<>();
     private ImageButton cameraButton;
     private ImageButton auto_cameraButton;
+    private ImageView detected_auto;
 
     @Override
     protected int getContentViewLayoutId() {
@@ -109,10 +113,8 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
     }
 
     private String getBatchDirectoryName() {
-
         String app_folder_path = "";
-        app_folder_path = Environment.getExternalStorageDirectory().toString() + "/images";
-        app_folder_path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString();
+        app_folder_path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString()+"/Camera";
         Log.e("petopia", app_folder_path);
         File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         if (!dir.exists()) {
@@ -121,7 +123,15 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
 
         return app_folder_path;
     }
-
+    private void scanner(String path) {
+        MediaScannerConnection.scanFile(CameraActivity.this,
+                new String[]{path}, null, new MediaScannerConnection.OnScanCompletedListener() {
+                    @Override
+                    public void onScanCompleted(String path, Uri uri) {
+                        Log.e("petopia", "image scanned" + path);
+                    }
+                });
+    }
     protected void takePicture() {
         SimpleDateFormat mDateFormat = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
         File file = new File(getBatchDirectoryName(), mDateFormat.format(new Date())+ ".jpg");
@@ -133,6 +143,7 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
                     public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                         //Toast.makeText(getApplicationContext(), "이미지 저장 성공", Toast.LENGTH_LONG).show();
                         Log.e("petopia", "image saved" + file.getAbsolutePath());
+                        scanner(file.getAbsolutePath());
                         Intent intent = new Intent(CameraActivity.this, Camera_PictureActivity.class);
                         intent.putExtra("imgpath", file.getAbsolutePath());
                         startActivity(intent);
@@ -164,7 +175,7 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
             }
         });
         auto_cameraButton = (ImageButton)findViewById(R.id.auto_imageButton);
-
+        detected_auto = (ImageView)findViewById(R.id.auto_imageview);
         View decorView = getWindow().getDecorView();
         // Hide the status bar.
         int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
@@ -208,14 +219,20 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(3);
         if(result.len >= 5) {
+            detected_auto.setVisibility(View.VISIBLE);
             if(auto_cameraButton.isPressed()) {
                 Log.e("petopia", "auto image save");
-            }
-            for(int i = 0; i < result.len; i+=5) {
-                Canvas canvas = new Canvas(overlay);
-                canvas.drawRect((int)(result.scores[i] * (float)w/192.0), (int)(result.scores[i+1] * (float)h/192.0), (int)(result.scores[i+2] * (float)w/192.0), (int)(result.scores[i+3] * (float)h/192.0), paint);
-            }
+                takePicture();
+                return;
+            } else {
+                for (int i = 0; i < result.len; i += 5) {
+                    Canvas canvas = new Canvas(overlay);
+                    canvas.drawRect((int) (result.scores[i] * (float) w / 192.0), (int) (result.scores[i + 1] * (float) h / 192.0), (int) (result.scores[i + 2] * (float) w / 192.0), (int) (result.scores[i + 3] * (float) h / 192.0), paint);
+                }
 
+            }
+        } else {
+            detected_auto.setVisibility(View.INVISIBLE);
         }
         imgView.setImageDrawable(new BitmapDrawable(getResources(), overlay));
     }
@@ -228,11 +245,6 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
 
         return mModuleAssetName;
     }
-
-//    @Override
-//    protected String getInfoViewAdditionalText() {
-//        return getModuleAssetName();
-//    }
 
     public static String assetFilePath(Context context, String assetName) {
         File file = new File(context.getFilesDir(), assetName);
@@ -299,11 +311,6 @@ public class CameraActivity extends AbstractCameraXActivity<CameraActivity.Analy
             return null;
         }
     }
-//
-//    @Override
-//    protected int getInfoViewCode() {
-//        return getIntent().getIntExtra(INTENT_INFO_VIEW_TYPE, -1);
-//    }
 
     @Override
     protected void onDestroy() {

@@ -2,12 +2,14 @@ package com.example.petopiaapp.Activities;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -15,6 +17,7 @@ import android.widget.ImageView;
 
 import com.example.petopiaapp.R;
 
+import java.io.File;
 import java.io.IOException;
 
 public class Camera_PictureActivity extends AppCompatActivity {
@@ -24,6 +27,7 @@ public class Camera_PictureActivity extends AppCompatActivity {
 
     Button save, cancle;
     @Override
+
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera__picture);
@@ -53,11 +57,22 @@ public class Camera_PictureActivity extends AppCompatActivity {
         Matrix rotateMatrix = new Matrix();
         rotateMatrix.postRotate(exifDegree);
         imgView.setImageBitmap(Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), rotateMatrix, false));
-
-        cancle.setOnClickListener(new View.OnClickListener() {
+        save.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(Camera_PictureActivity.this, CameraActivity.class));
+                finish();
+            }
+        });
+        cancle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ContentResolver contentResolver = getContentResolver();
+                contentResolver.delete(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        MediaStore.Images.ImageColumns.DATA + "=?" , new String[]{ imgpath });
+                Log.e("petopia", "file delete"+imgpath);
+                startActivity(new Intent(Camera_PictureActivity.this, CameraActivity.class));
+                finish();
             }
         });
     }
